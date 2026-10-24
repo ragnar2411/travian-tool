@@ -15,16 +15,14 @@ def background_auto_updater():
         try:
             print("Background task: Fetching live servers and updating...")
             servers = fetch_live_game_servers()
-            # אם יש לפחות שרת אחד פעיל, ניתן לסרוק אוטומטית או לרענן נתונים
             if servers:
-                # דוגמה: סריקה אוטומטית של השרת הראשון ברשימה סביב (0,0)
                 default_server = servers[0]
                 fetch_inactive_farms(server_domain=default_server, center_x=0, center_y=0, max_distance=30)
                 print(f"Background task: Successfully updated farms from {default_server}")
         except Exception as e:
             print(f"Background task error: {e}")
         
-5# המתנה של 6 שעות (6 שעות * 60 דקות * 60 שניות)
+        # המתנה של 6 שעות (6 שעות * 60 דקות * 60 שניות)
         time.sleep(6 * 60 * 60)
 
 @app.on_event("startup")
