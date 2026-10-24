@@ -10,15 +10,15 @@ from scraper import fetch_inactive_farms, fetch_live_game_servers
 app = FastAPI()
 
 def background_auto_updater():
-    """פונקציית רקע שרצה כל 6 שעות ומעודכנת אוטומטית"""
+    """משימת רקע שרצה אוטומטית כל 6 שעות ומעדכנת את מפת השרת והחוות"""
     while True:
         try:
-            print("Background task: Fetching live servers and updating...")
+            print("Background task: Fetching live servers and updating map...")
             servers = fetch_live_game_servers()
             if servers:
                 default_server = servers[0]
                 fetch_inactive_farms(server_domain=default_server, center_x=0, center_y=0, max_distance=30)
-                print(f"Background task: Successfully updated farms from {default_server}")
+                print(f"Background task: Successfully updated map.sql and farms from {default_server}")
         except Exception as e:
             print(f"Background task error: {e}")
         
@@ -40,7 +40,7 @@ def read_root():
 
 @app.get("/api/servers")
 def get_servers():
-    """מחזיר את כל השרתים הפעילים שנמשכו ישירות ממערכות המשחק"""
+    """מחזיר את כל השרתים הפעילים לממשק"""
     servers = fetch_live_game_servers()
     return {"status": "success", "servers": servers}
 
