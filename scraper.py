@@ -22,24 +22,43 @@ def init_db():
     conn.close()
 
 def fetch_live_game_servers():
-    """שולף את כל השרתים הפעילים בזמן אמת באופן דינמי מהמשחק"""
+    """שולף את כל השרתים הפעילים בזמן אמת מלובי המשחק"""
     servers = []
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*"
+    }
     
     try:
-        res = requests.get("https://lobby.travian.com/api/v1/servers", headers=headers, timeout=5)
+        res = requests.get("https://lobby.travian.com/api/v1/servers", headers=headers, timeout=10)
         if res.status_code == 200:
             data = res.json()
+            # מעבר על מבני הנתונים האפשריים שהלובי מחזיר
+            items = []
             if isinstance(data, list):
-                for s in data:
-                    if "domain" in s:
-                        servers.append(s["domain"])
-            elif isinstance(data, dict) and "servers" in data:
-                for s in data["servers"]:
-                    if "domain" in s:
-                        servers.append(s["domain"])
+                items = data
+            elif isinstance(data, dict):
+                items = data.get("servers", data.get("response", data.get("data", [])))
+                
+            for s in items:
+                if isinstance(s, dict):
+                    domain = s.get("domain", s.get("url", s.get("name", "")))
+                    if domain:
+                        # ניקוי הדומיין במידה והוא מכיל https://
+                        domain = domain.replace("https://", "").replace("http://", "").strip("/")
+                        if "travian.com" in domain and domain not in servers:
+                            servers.append(domain)
     except Exception as e:
         print(f"Lobby fetch error: {e}")
+
+    # אם מסיבה כלשהי הלובי לא החזיר שרתים, נחזיר רשימה בסיסית כדי שהתפריט לא יהיה ריק
+    if not servers:
+        servers = [
+            "rog.x5.international.travian.com",
+            "rog.x1.arabics.travian.com",
+            "ts3.x1.arabics.travian.com",
+            "ts21.x2.arabics.travian.com"
+        ]
 
     return list(set(servers))
 
