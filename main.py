@@ -1,18 +1,50 @@
-import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
+import uvicorn
 import os
-from scraper import fetch_inactive_farms
 import sqlite3
+import threading
+import time
+from scraper import fetch_inactive_farms, fetch_live_game_servers
 
 app = FastAPI()
+
+def background_auto_updater():
+    """פונקציית רקע שרצה כל 6 שעות ומעודכנת אוטומטית"""
+    while True:
+        try:
+            print("Background task: Fetching live servers and updating...")
+            servers = fetch_live_game_servers()
+            # אם יש לפחות שרת אחד פעיל, ניתן לסרוק אוטומטית או לרענן נתונים
+            if servers:
+                # דוגמה: סריקה אוטומטית של השרת הראשון ברשימה סביב (0,0)
+                default_server = servers[0]
+                fetch_inactive_farms(server_domain=default_server, center_x=0, center_y=0, max_distance=30)
+                print(f"Background task: Successfully updated farms from {default_server}")
+        except Exception as e:
+            print(f"Background task error: {e}")
+        
+5# המתנה של 6 שעות (6 שעות * 60 דקות * 60 שניות)
+        time.sleep(6 * 60 * 60)
+
+@app.on_event("startup")
+def startup_event():
+    """הפעלת משימת הרקע ברגע שהשרת עולה לאוויר"""
+    updater_thread = threading.Thread(target=background_auto_updater, daemon=True)
+    updater_thread.start()
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>Backend is Running!</h1><p>index.html not found.</p>"
+    return "<h1>Backend Running</h1>"
+
+@app.get("/api/servers")
+def get_servers():
+    """מחזיר את כל השרתים הפעילים שנמשכו ישירות ממערכות המשחק"""
+    servers = fetch_live_game_servers()
+    return {"status": "success", "servers": servers}
 
 @app.get("/api/farms")
 def get_farms():
@@ -37,9 +69,14 @@ def get_farms():
     return {"status": "success", "data": farms}
 
 @app.post("/api/scan")
-def trigger_scan():
+def trigger_scan(
+    server: str = Query("ts3.x1.arabics.travian.com"),
+    x: int = Query(0),
+    y: int = Query(0),
+    radius: int = Query(30)
+):
     try:
-        count = fetch_inactive_farms()
+        count = fetch_inactive_farms(server_domain=server, center_x=x, center_y=y, max_distance=radius)
         return {"status": "success", "added": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
