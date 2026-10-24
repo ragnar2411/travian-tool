@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 import os
 import sqlite3
-from scraper import fetch_inactive_farms  # ייבוא פונקציית הסריקה
+from scraper import fetch_inactive_farms
 
 app = FastAPI(title="Travian Inactive Hunter")
 
@@ -40,7 +40,7 @@ def get_farms():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# API להפעלת סריקה חדשה בלחיצת כפתור
+# API להפעלת סריקה חדשה
 @app.get("/api/scan")
 def trigger_scan():
     try:
