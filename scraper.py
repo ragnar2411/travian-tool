@@ -33,7 +33,6 @@ def fetch_live_game_servers():
         res = requests.get("https://lobby.travian.com/api/v1/servers", headers=headers, timeout=10)
         if res.status_code == 200:
             data = res.json()
-            # מעבר על מבני הנתונים האפשריים שהלובי מחזיר
             items = []
             if isinstance(data, list):
                 items = data
@@ -44,23 +43,35 @@ def fetch_live_game_servers():
                 if isinstance(s, dict):
                     domain = s.get("domain", s.get("url", s.get("name", "")))
                     if domain:
-                        # ניקוי הדומיין במידה והוא מכיל https://
                         domain = domain.replace("https://", "").replace("http://", "").strip("/")
                         if "travian.com" in domain and domain not in servers:
                             servers.append(domain)
     except Exception as e:
         print(f"Lobby fetch error: {e}")
 
-    # אם מסיבה כלשהי הלובי לא החזיר שרתים, נחזיר רשימה בסיסית כדי שהתפריט לא יהיה ריק
-    if not servers:
-        servers = [
-            "rog.x5.international.travian.com",
-            "rog.x1.arabics.travian.com",
-            "ts3.x1.arabics.travian.com",
-            "ts21.x2.arabics.travian.com"
-        ]
+    # רשימת גיבוי מקיפה למקרה שהלובי חסום זמנית, כדי שהתפריט לעולם לא יהיה ריק
+    fallback_servers = [
+        "rog.x5.international.travian.com",
+        "rog.x3.europe.travian.com",
+        "rog.x3.international.travian.com",
+        "rog.x1.arabics.travian.com",
+        "ts3.x1.arabics.travian.com",
+        "ts21.x2.arabics.travian.com",
+        "alpler.x3.turkey.travian.com",
+        "cw.x2.international.travian.com",
+        "czsk.x1.czsk.travian.com",
+        "eterni.x3.italy.travian.com",
+        "garuda.x3.indonesia.travian.com",
+        "ts100.x10.asia.travian.com",
+        "ts10.x1.america.travian.com",
+        "ts10.x1.international.travian.com"
+    ]
+    
+    for s in fallback_servers:
+        if s not in servers:
+            servers.append(s)
 
-    return list(set(servers))
+    return sorted(list(set(servers)))
 
 def fetch_inactive_farms(server_domain="ts3.x1.arabics.travian.com", center_x=0, center_y=0, max_distance=30):
     init_db()
