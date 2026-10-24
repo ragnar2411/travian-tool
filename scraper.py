@@ -1,13 +1,7 @@
 import sqlite3
 import requests
 import re
-from datetime import datetime
-
-# הגדרת שרת ברירת מחדל ומרכז חיפוש (X, Y)
-SERVER_DOMAIN = "ts3.x1.arabics.travian.com"
-CENTER_X = 0
-CENTER_Y = 0
-MAX_DISTANCE = 30  # רדיוס משבצות לחיפוש חוות
+import json
 
 def init_db():
     conn = sqlite3.connect("travian.db")
@@ -27,32 +21,49 @@ def init_db():
     conn.commit()
     conn.close()
 
-def fetch_inactive_farms():
+def fetch_live_game_servers():
+    """שולף את כל השרתים הפעילים בזמן אמת באופן דינמי מהמשחק"""
+    servers = []
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    
+    try:
+        res = requests.get("https://lobby.travian.com/api/v1/servers", headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            if isinstance(data, list):
+                for s in data:
+                    if "domain" in s:
+                        servers.append(s["domain"])
+            elif isinstance(data, dict) and "servers" in data:
+                for s in data["servers"]:
+                    if "domain" in s:
+                        servers.append(s["domain"])
+    except Exception as e:
+        print(f"Lobby fetch error: {e}")
+
+    return list(set(servers))
+
+def fetch_inactive_farms(server_domain="ts3.x1.arabics.travian.com", center_x=0, center_y=0, max_distance=30):
     init_db()
     
-    # 1. הורדת קובץ map.sql הרשמי מהשרת
-    map_url = f"https://{SERVER_DOMAIN}/map.sql"
+    map_url = f"https://{server_domain}/map.sql"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
     try:
         response = requests.get(map_url, headers=headers, timeout=15)
         if response.status_code != 200:
-            print(f"Failed to fetch map.sql from {SERVER_DOMAIN}")
+            print(f"Failed to fetch map.sql from {server_domain}")
             return 0
         map_data = response.text
     except Exception as e:
         print(f"Error fetching map.sql: {e}")
         return 0
 
-    # 2. ניתוח שורות ה-INSERT מתוך map.sql
-    # פורמט נפוץ: INSERT INTO `x_world` VALUES (id, x, y, tribe, vmid, village_name, player_id, player_name, alliance_id, alliance_name, pop, ...);
     pattern = re.compile(r"VALUES\s*\(([^)]+)\)")
     matches = pattern.findall(map_data)
     
     conn = sqlite3.connect("travian.db")
     cursor = conn.cursor()
-    
-    # ניקוי חוות ישנות לפני עדכון
     cursor.execute("DELETE FROM farms")
     
     added_count = 0
@@ -66,11 +77,9 @@ def fetch_inactive_farms():
                 player_name = parts[7]
                 pop = int(parts[10])
                 
-                # חישוב מרחק מהמרכז
-                dist = round(((x - CENTER_X)**2 + (y - CENTER_Y)**2)**0.5, 1)
+                dist = round(((x - center_x)**2 + (y - center_y)**2)**0.5, 1)
                 
-                # סינון חוות: ברדיוס המוגדר ואוכלוסייה קטנה מ-200 (פוטנציאל לחווה לא פעילה)
-                if dist <= MAX_DISTANCE and pop < 200 and pop > 0:
+                if dist <= max_distance and pop < 200 and pop > 0:
                     cursor.execute("""
                         INSERT INTO farms (player, village, population, x, y, distance, last_active)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
