@@ -1,104 +1,50 @@
-from fastapi import FastAPI, Query
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
+import os
 import sqlite3
-import math
-from datetime import datetime, timedelta
+from scraper import fetch_inactive_farms  # ייבוא פונקציית הסריקה
 
-app = FastAPI(title="Travian Inactive Analyzer API")
+app = FastAPI(title="Travian Inactive Hunter")
 
-# מאפשר לממשק ה-Frontend לתקשר עם ה-Backend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# נתיב ראשי - מציג את ממשק המשתמש (index.html)
+@app.get("/", response_class=HTMLResponse)
+def read_root():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "<h1>Travian Tool Backend is Running!</h1><p>index.html not found.</p>"
 
-DB_NAME = "travian_analyzer.db"
-
-@app.get("/api/inactives")
-def get_inactives(
-    server: str,
-    origin_x: int,
-    origin_y: int,
-    radius: int = 30,
-    days: int = Query(3, ge=1, le=5),
-    min_pop: int = 0,
-    max_pop: int = 9999,
-    excluded_alliances: str = ""
-):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    past_date_str = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-    
-    excluded_list = [a.strip().lower() for a in excluded_alliances.split(",") if a.strip()]
-    
-    # שאילתת SQL המבצעת בדיקה ברמת החשבון הכללי של השחקן
-    query = '''
-        WITH CurrentAccountPop AS (
-            SELECT player_id, SUM(population) as total_pop_now
-            FROM village_snapshots
-            WHERE server_url = ? AND snapshot_date = ?
-            GROUP BY player_id
-        ),
-        PastAccountPop AS (
-            SELECT player_id, SUM(population) as total_pop_past
-            FROM village_snapshots
-            WHERE server_url = ? AND snapshot_date = ?
-            GROUP BY player_id
-        )
-        SELECT 
-            v.village_id, v.village_name, v.x, v.y, v.tribe, v.population,
-            v.player_id, v.player_name, v.alliance_tag,
-            c.total_pop_now, p.total_pop_past
-        FROM village_snapshots v
-        JOIN CurrentAccountPop c ON v.player_id = c.player_id
-        JOIN PastAccountPop p ON v.player_id = p.player_id
-        WHERE v.server_url = ? 
-          AND v.snapshot_date = ?
-          AND c.total_pop_now <= p.total_pop_past
-          AND v.population BETWEEN ? AND ?
-    '''
-    
+# API לקבלת רשימת החוות הלא פעילות
+@app.get("/api/farms")
+def get_farms():
     try:
-        cursor.execute(query, (server, today_str, server, past_date_str, server, today_str, min_pop, max_pop))
+        conn = sqlite3.connect("travian.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, player, village, population, x, y, distance, last_active FROM farms ORDER BY distance ASC")
         rows = cursor.fetchall()
-    except Exception as e:
-        rows = []
-    finally:
         conn.close()
-    
-    results = []
-    for row in rows:
-        v_id, v_name, x, y, tribe, pop, p_id, p_name, alliance, total_now, total_past = row
         
-        # חישוב מרחק במפה
-        dist = math.sqrt((x - origin_x)**2 + (y - origin_y)**2)
-        if dist > radius:
-            continue
-            
-        if alliance and alliance.lower() in excluded_list:
-            continue
-            
-        results.append({
-            "village_id": v_id,
-            "village_name": v_name,
-            "x": x,
-            "y": y,
-            "tribe": tribe,
-            "population": pop,
-            "player_name": p_name,
-            "alliance_tag": alliance,
-            "total_account_pop": total_now,
-            "distance": round(dist, 1)
-        })
-        
-    results.sort(key=lambda item: item["distance"])
-    return {"status": "success", "count": len(results), "data": results}
+        farms = []
+        for row in rows:
+            farms.append({
+                "id": row[0],
+                "player": row[1],
+                "village": row[2],
+                "population": row[3],
+                "x": row[4],
+                "y": row[5],
+                "distance": row[6],
+                "last_active": row[7]
+            })
+        return {"status": "success", "data": farms}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# API להפעלת סריקה חדשה בלחיצת כפתור
+@app.get("/api/scan")
+def trigger_scan():
+    try:
+        count = fetch_inactive_farms()
+        return {"status": "success", "message": f"Scan completed. Found/updated {count} farms."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
