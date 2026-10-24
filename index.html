@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travian Inactive Analyzer & Scouting Tool (Standalone)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .card { background-color: #1e293b; border: 1px solid #334155; }
+    .input-field { background-color: #0f172a; border: 1px solid #334155; color: #f8fafc; }
+    .input-field:focus { border-color: #3b82f6; outline: none; }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Header -->
+    <header class="card p-6 rounded-xl flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-l-blue-500">
+      <div>
+        <h1 class="text-2xl font-bold flex items-center gap-3 text-white">
+          <i class="fa-solid fa-shield-halved text-blue-500"></i> Travian Inactive & Scout Analyzer
+        </h1>
+        <p class="text-slate-400 text-sm mt-1">Standalone Version — No installation required. Detects inactive farms & enables batch scouting.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="text-xs text-slate-400">Server Domain:</label>
+        <input type="text" id="serverUrl" value="ts3.x1.arabics.travian.com" class="input-field px-3 py-1.5 rounded-lg text-sm w-64">
+      </div>
+    </header>
+
+    <!-- Controls & Filters Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Search & Inactive Filters -->
+      <div class="card p-5 rounded-xl space-y-4">
+        <h2 class="font-semibold text-lg text-blue-400 flex items-center gap-2">
+          <i class="fa-solid fa-filter text-sm"></i> Inactive Search Filters
+        </h2>
+
+        <!-- Inactive Days Selector -->
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-2">Days Without Account Growth:</label>
+          <div class="grid grid-cols-5 gap-2" id="daysSelector">
+            <button onclick="setDays(1)" class="day-btn py-2 rounded-lg text-sm font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white transition" data-days="1">1D</button>
+            <button onclick="setDays(2)" class="day-btn py-2 rounded-lg text-sm font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white transition" data-days="2">2D</button>
+            <button onclick="setDays(3)" class="day-btn py-2 rounded-lg text-sm font-semibold border border-blue-500 bg-blue-600 text-white transition" data-days="3">3D</button>
+            <button onclick="setDays(4)" class="day-btn py-2 rounded-lg text-sm font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white transition" data-days="4">4D</button>
+            <button onclick="setDays(5)" class="day-btn py-2 rounded-lg text-sm font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white transition" data-days="5">5D</button>
+          </div>
+        </div>
+
+        <!-- Coordinates & Radius -->
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Center X</label>
+            <input type="number" id="originX" value="0" class="input-field w-full px-3 py-1.5 rounded-lg text-sm text-center">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Center Y</label>
+            <input type="number" id="originY" value="0" class="input-field w-full px-3 py-1.5 rounded-lg text-sm text-center">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Radius</label>
+            <input type="number" id="radius" value="30" class="input-field w-full px-3 py-1.5 rounded-lg text-sm text-center">
+          </div>
+        </div>
+
+        <!-- Farmlist Filter -->
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Is in my farmlist?</label>
+          <select id="farmlistFilter" class="input-field w-full px-3 py-2 rounded-lg text-sm">
+            <option value="both">Both (Show All)</option>
+            <option value="not_in_list" selected>Not in farmlist (New Farms Only)</option>
+            <option value="in_list">In farmlist</option>
+          </select>
+        </div>
+
+        <button onclick="searchInactives()" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 font-semibold text-white rounded-lg transition shadow-lg flex items-center justify-center gap-2">
+          <i class="fa-solid fa-magnifying-glass"></i> Search Inactives
+        </button>
+      </div>
+
+      <!-- Farmlist Import Panel -->
+      <div class="card p-5 rounded-xl space-y-4">
+        <h2 class="font-semibold text-lg text-emerald-400 flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-sm"></i> Farmlist Synchronization
+        </h2>
+        <p class="text-xs text-slate-400">Paste your entire Farmlist page text from Travian. Coordinates will be parsed automatically.</p>
+        <textarea id="farmlistInput" rows="5" class="input-field w-full p-3 rounded-lg text-xs font-mono" placeholder="Paste text here..."></textarea>
+        <div class="flex gap-2">
+          <button onclick="importFarmlist()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold rounded-lg transition">
+            <i class="fa-solid fa-file-import"></i> Save Farmlist
+          </button>
+          <button onclick="clearFarmlist()" class="py-2 px-3 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white text-xs rounded-lg transition">
+            Clear
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500" id="farmlistCount">Stored Farms: 0 villages</p>
+      </div>
+
+      <!-- Scouting Rules Setup -->
+      <div class="card p-5 rounded-xl space-y-4">
+        <h2 class="font-semibold text-lg text-purple-400 flex items-center gap-2">
+          <i class="fa-solid fa-binoculars text-sm"></i> Quick Scouting Rules
+        </h2>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Scouts Count Matrix by Population:</label>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded border border-slate-800">
+              <span>0 - 50 Pop</span>
+              <span class="font-mono text-purple-400 font-bold">1 Scout</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded border border-slate-800">
+              <span>51 - 150 Pop</span>
+              <span class="font-mono text-purple-400 font-bold">2 Scouts</span>
+            </div>
+            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded border border-slate-800">
+              <span>151+ Pop</span>
+              <span class="font-mono text-purple-400 font-bold">5 Scouts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Results Section -->
+    <div class="card p-6 rounded-xl space-y-4">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            Inactive Targets <span id="resultsBadge" class="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">0 found</span>
+          </h2>
+        </div>
+
+        <!-- Batch Action Toolbar -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="batchScout(1)" class="px-3 py-1.5 bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-600 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-box-open"></i> Scout Resources (Selected)
+          </button>
+          <button onclick="batchScout(2)" class="px-3 py-1.5 bg-purple-600/20 border border-purple-500/40 text-purple-300 hover:bg-purple-600 hover:text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-shield"></i> Scout Defences (Selected)
+          </button>
+          <button onclick="copySelectedCoords()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs transition">
+            <i class="fa-solid fa-copy"></i> Copy Coords
+          </button>
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+              <th class="p-3 text-center"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+              <th class="p-3">Village</th>
+              <th class="p-3">Coords</th>
+              <th class="p-3">Distance</th>
+              <th class="p-3">Village Pop</th>
+              <th class="p-3">Total Player Pop</th>
+              <th class="p-3">Player / Alliance</th>
+              <th class="p-3">Farmlist Status</th>
+              <th class="p-3 text-center">Quick Scouting</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTable" class="divide-y divide-slate-800/60 text-slate-300">
+            <tr>
+              <td colspan="9" class="p-8 text-center text-slate-500">Click "Search Inactives" to load mock data demonstration.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let selectedDays = 3;
+    let storedFarmlist = new Set(JSON.parse(localStorage.getItem('myFarmlist') || '[]'));
+    let currentResults = [];
+
+    // Built-in Mock Data for standalone demonstration
+    const mockDatabase = [
+      { village_id: 101, village_name: "Farm Alpha", x: 5, y: -3, population: 42, total_account_pop: 42, player_name: "GhostPlayer1", alliance_tag: "DEAD" },
+      { village_id: 102, village_name: "Dark Outpost", x: -12, y: 15, population: 110, total_account_pop: 110, player_name: "InactiveLord", alliance_tag: "" },
+      { village_id: 103, village_name: "Abandoned Hub", x: 8, y: 8, population: 245, total_account_pop: 490, player_name: "SleepingGiant", alliance_tag: "SLEEP" },
+      { village_id: 104, village_name: "Quiet Hamlet", x: -2, y: -5, population: 28, total_account_pop: 28, player_name: "NoobFarmer", alliance_tag: "NONE" },
+      { village_id: 105, village_name: "Lost City", x: 22, y: -14, population: 180, total_account_pop: 180, player_name: "DesertedKing", alliance_tag: "LOST" }
+    ];
+
+    function setDays(days) {
+      selectedDays = days;
+      document.querySelectorAll('.day-btn').forEach(btn => {
+        if (parseInt(btn.dataset.days) === days) {
+          btn.className = 'day-btn py-2 rounded-lg text-sm font-semibold border border-blue-500 bg-blue-600 text-white transition';
+        } else {
+          btn.className = 'day-btn py-2 rounded-lg text-sm font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white transition';
+        }
+      });
+    }
+
+    function updateFarmlistUI() {
+      document.getElementById('farmlistCount').innerText = `Stored Farms: ${storedFarmlist.size} villages`;
+    }
+
+    function importFarmlist() {
+      const text = document.getElementById('farmlistInput').value;
+      const regex = /\((-?\d+)\|(-?\d+)\)|(-?\d+)\|(-?\d+)/g;
+      let match;
+      let count = 0;
+      while ((match = regex.exec(text)) !== null) {
+        const x = match[1] || match[3];
+        const y = match[2] || match[4];
+        storedFarmlist.add(`${x}|${y}`);
+        count++;
+      }
+      localStorage.setItem('myFarmlist', JSON.stringify(Array.from(storedFarmlist)));
+      updateFarmlistUI();
+      alert(`Imported ${count} coordinates successfully!`);
+    }
+
+    function clearFarmlist() {
+      storedFarmlist.clear();
+      localStorage.removeItem('myFarmlist');
+      updateFarmlistUI();
+    }
+
+    function getScoutCount(pop) {
+      if (pop <= 50) return 1;
+      if (pop <= 150) return 2;
+      return 5;
+    }
+
+    function buildScoutUrl(targetX, targetY, scoutType, pop) {
+      const server = document.getElementById('serverUrl').value.trim();
+      const count = getScoutCount(pop);
+      return `https://${server}/build.php?gid=16&tt=2&x=${targetX}&y=${targetY}&spy=${scoutType}&scouts=${count}`;
+    }
+
+    function searchInactives() {
+      const originX = parseFloat(document.getElementById('originX').value) || 0;
+      const originY = parseFloat(document.getElementById('originY').value) || 0;
+      const radius = parseFloat(document.getElementById('radius').value) || 30;
+      const farmlistFilter = document.getElementById('farmlistFilter').value;
+
+      currentResults = mockDatabase.map(item => {
+        const dist = Math.sqrt(Math.pow(item.x - originX, 2) + Math.pow(item.y - originY, 2));
+        return { ...item, distance: parseFloat(dist.toFixed(1)) };
+      }).filter(item => {
+        if (item.distance > radius) return false;
+        const inList = storedFarmlist.has(`${item.x}|${item.y}`);
+        if (farmlistFilter === 'in_list') return inList;
+        if (farmlistFilter === 'not_in_list') return !inList;
+        return true;
+      });
+
+      renderTable(currentResults);
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('resultsTable');
+      document.getElementById('resultsBadge').innerText = `${data.length} found`;
+
+      if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-500">No villages match your search parameters within radius.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.map((item, index) => {
+        const inList = storedFarmlist.has(`${item.x}|${item.y}`);
+        const server = document.getElementById('serverUrl').value.trim();
+        const villageUrl = `https://${server}/position_details.php?x=${item.x}&y=${item.y}`;
+        
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-3 text-center"><input type="checkbox" class="row-checkbox" data-index="${index}"></td>
+            <td class="p-3 font-medium text-white"><a href="${villageUrl}" target="_blank" class="hover:underline text-blue-400">${item.village_name}</a></td>
+            <td class="p-3 font-mono text-slate-300">(${item.x}|${item.y})</td>
+            <td class="p-3 font-mono text-slate-400">${item.distance} fields</td>
+            <td class="p-3 font-semibold text-emerald-400">${item.population}</td>
+            <td class="p-3 font-semibold text-purple-400">${item.total_account_pop}</td>
+            <td class="p-3">${item.player_name} <span class="text-slate-500">[${item.alliance_tag || '-'}]</span></td>
+            <td class="p-3">
+              ${inList 
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold">In Farmlist</span>' 
+                : '<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">New Farm</span>'}
+            </td>
+            <td class="p-3 text-center">
+              <div class="flex justify-center gap-1">
+                <a href="${buildScoutUrl(item.x, item.y, 1, item.population)}" target="_blank" title="Scout Resources & Troops" class="p-1.5 bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white rounded border border-amber-500/30 transition">
+                  <i class="fa-solid fa-box-open"></i>
+                </a>
+                <a href="${buildScoutUrl(item.x, item.y, 2, item.population)}" target="_blank" title="Scout Defences & Troops" class="p-1.5 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white rounded border border-purple-500/30 transition">
+                  <i class="fa-solid fa-shield"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function toggleSelectAll(master) {
+      document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = master.checked);
+    }
+
+    function batchScout(scoutType) {
+      const selected = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+        .map(cb => currentResults[parseInt(cb.dataset.index)]);
+
+      if (selected.length === 0) {
+        alert("Please select at least one village from the table.");
+        return;
+      }
+
+      selected.forEach(item => {
+        window.open(buildScoutUrl(item.x, item.y, scoutType, item.population), '_blank');
+      });
+    }
+
+    function copySelectedCoords() {
+      const selected = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+        .map(cb => currentResults[parseInt(cb.dataset.index)])
+        .map(item => `(${item.x}|${item.y})`)
+        .join(' ');
+
+      if (!selected) {
+        alert("No villages selected.");
+        return;
+      }
+
+      navigator.clipboard.writeText(selected);
+      alert("Coordinates copied to clipboard!");
+    }
+
+    updateFarmlistUI();
+  </script>
+</body>
+</html>
